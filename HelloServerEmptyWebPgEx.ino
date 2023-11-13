@@ -24,9 +24,22 @@
 #include <ESPmDNS.h>
 #include "homepage.h"
 #include <DFRobot_DHT11.h>
+#include <Adafruit_PN532.h>
+#include <Servo.h>
 
 DFRobot_DHT11 DHT;
 #define DHT11_PIN 14
+
+#define PN532_SCK   (16)
+#define PN532_MOSI  (15)
+#define PN532_SS    (4)
+#define PN532_MISO  (5)
+#define PN532_IRQ   (16)
+#define PN532_RESET (15)
+Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
+
+Servo servo1;
+static const int servoPin = 21;
 
 const char* ssid = "Humm";
 const char* password = "g00416547";
@@ -50,10 +63,33 @@ String getHumid()
 
 void motorLock()
 {
+  boolean success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };	// Buffer to store the returned UID
+  uint8_t uidLength;				// Length of the UID (4 or 7 bytes depending on ISO14443A card type
+
   int lock = 0;
   if(lock == 0)
   {
-      
+    for(int posDegrees = 0; posDegrees <= 90; posDegrees += 2)
+    {
+      servo1.write(posDegrees);
+      delay(20);
+    }
+
+    success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+    if(success)
+    {
+      for(int posDegrees = 90; posDegrees >= 0; posDegrees -= 2)
+      {
+        servo1.write(posDegrees);
+        delay(20);
+      }
+    }
+  }
+
+  if(lock == 1)
+  {
+    
   }
 }
 
@@ -84,6 +120,26 @@ void setup(void) {
   WiFi.begin(ssid, password);
   Serial.println("");
 
+  nfc.begin();
+
+  //Error catching
+  uint32_t versiondata = nfc.getFirmwareVersion();
+  if (! versiondata) {
+    Serial.print(versiondata);
+    Serial.print("Didn't find PN53x board");
+    while (1); // halt
+  }
+
+  //State whether it's successful
+  Serial.print("Found chip PN5"); Serial.println((versiondata>>24) & 0xFF, HEX);
+  Serial.print("Firmware ver. "); Serial.print((versiondata>>16) & 0xFF, DEC);
+  Serial.print('.'); Serial.println((versiondata>>8) & 0xFF, DEC);
+
+  //Prevents an infinite loop while waiting for a card
+  nfc.setPassiveActivationRetries(0xFF);
+
+  servo1.attach(servoPin);
+
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -112,4 +168,14 @@ void setup(void) {
 void loop(void) {
   server.handleClient();
   delay(2);//allow the cpu to switch to other tasks
+  
+  boolean success;
+  uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };	// Buffer to store the returned UID
+  uint8_t uidLength;				// Length of the UID (4 or 7 bytes depending on ISO14443A card type)
+
+  success = nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
+  if(success)
+  {
+    motorLock();
+  }
 }
