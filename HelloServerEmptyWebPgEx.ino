@@ -24,18 +24,20 @@
 #include <ESPmDNS.h>
 #include "homepage.h"
 #include <DFRobot_DHT11.h>
+#include <Wire.h>
+#include <SPI.h>
 #include <Adafruit_PN532.h>
 #include <Servo.h>
 
 DFRobot_DHT11 DHT;
 #define DHT11_PIN 14
 
-#define PN532_SCK   (16)
-#define PN532_MOSI  (15)
-#define PN532_SS    (4)
-#define PN532_MISO  (5)
-#define PN532_IRQ   (16)
-#define PN532_RESET (15)
+#define PN532_SCK   (18)
+#define PN532_MOSI  (23)
+#define PN532_SS    (5)
+#define PN532_MISO  (19)
+#define PN532_IRQ   (18)
+#define PN532_RESET (23)
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 
 Servo servo1;
@@ -46,28 +48,12 @@ const char* password = "g00416547";
 
 WebServer server(80);
 
-//temp function to simulate temp sensor
-String getTemp() 
-{
-  DHT.read(DHT11_PIN);
-  String temp = String(DHT.temperature);
-  return temp;
-}
-
-String getHumid()
-{
-  DHT.read(DHT11_PIN);
-  String humid = String(DHT.humidity);
-  return humid;
-}
-
-void motorLock()
+void motor()
 {
   boolean success;
   uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };	// Buffer to store the returned UID
   uint8_t uidLength;				// Length of the UID (4 or 7 bytes depending on ISO14443A card type
 
-  int lock = 0;
   if(lock == 0)
   {
     for(int posDegrees = 0; posDegrees <= 90; posDegrees += 2)
@@ -121,6 +107,8 @@ void setup(void) {
   Serial.println("");
 
   nfc.begin();
+
+  int lock = 0;
 
   //Error catching
   uint32_t versiondata = nfc.getFirmwareVersion();
